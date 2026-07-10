@@ -20,7 +20,7 @@ type ClipboardBackend interface {
 }
 
 // NewKeyringBackend returns the appropriate KeyringBackend for the current platform.
-// Implementation is in darwin_stub.go or linux_stub.go based on build tags.
+// Implementation is in darwin_keyring.go or linux_keyring.go based on build tags.
 
 // NewClipboardBackend returns the appropriate ClipboardBackend for the current platform.
-// Implementation is in darwin_stub.go or linux_stub.go based on build tags.
+// Implementation is in darwin_clipboard.go or linux_clipboard.go based on build tags.

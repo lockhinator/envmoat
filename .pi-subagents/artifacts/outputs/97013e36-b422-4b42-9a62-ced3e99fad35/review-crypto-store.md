@@ -1,0 +1,1 @@
+Now let me check the config.go `WriteConfig` to confirm it uses atomic writes:

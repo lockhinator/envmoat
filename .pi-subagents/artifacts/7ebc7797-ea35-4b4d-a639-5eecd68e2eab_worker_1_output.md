@@ -1,0 +1,1 @@
+The `99designs/keychain` repo is gone. `zalando/go-keyring` is the working alternative. Let me adapt.
