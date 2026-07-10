@@ -1,0 +1,77 @@
+# Task for delegate
+
+Add implementation plans to Phase 6 (Backup/Rotate) and Phase 7 (Polish) tasks. Run these commands:
+
+bd update SM-1i3.3 --description "$(bd show SM-1i3.3 --json | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['description'])")\n\n## Implementation Plan\n- Package: cmd/ (get.go — add --clip flag)\n- Use backend.NewClipboardBackend().Copy(value)\n- Print \"Copied to clipboard\" to stderr only\n- Never print secret value to stdout when --clip used\n- Re-auth if session expired\n- Dependencies: SM-gtv.2 (get command), SM-coy.1 or SM-ckp (clipboard backend)\n- Acceptance: --clip copies to clipboard, stderr message, no stdout output" 2>&1
+
+bd update SM-1i3.2 --description "$(bd show SM-1i3.2 --json | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['description'])")\n\n## Implementation Plan\n- Package: cmd/ (edit.go)\n- Temp file: ioutil.TempFile(os.Getenv(\"HOME\")+\"/.envmoat\", \"edit-\"), mode 0600\n- Write current value to temp file\n- exec.Command(os.Getenv(\"EDITOR\") \"vim\"), temp file)\n- On exit code 0: read new value, update bundle, atomic write\n- On non-zero: no changes, no error\n- Cleanup: defer os.Remove(tempPath)\n- Re-auth if session expired\n- Dependencies: SM-gtv.2 (set/get), SM-gtv.7 (encryption)\n- Acceptance: edit opens editor, saves on exit, temp file cleaned up, no changes on cancel" 2>&1
+
+bd update SM-1i3.1 --description "$(bd show SM-1i3.1 --json | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['description'])")\n\n## Implementation Plan\n- Package: cmd/ (backup.go, restore.go)\n- backup --to-file: decrypt all bundles with current LUK, write to single file\n- Format: [4B magic \"EMBT\"][4B version][varint bundle count][for each: varint name len, name, varint data len, encrypted data]\n- Re-encrypt each bundle with a backup-key derived from LUK via HKDF\n- restore --from-file: parse format, decrypt with current LUK, merge into existing bundles\n- Conflict prompt: skip/overwrite/cancel per key\n- 'export' alias for backup, 'import' alias for restore\n- Dependencies: SM-gtv.7 (encryption), SM-ckp or SM-coy (auth)\n- Acceptance: backup creates valid file, restore merges correctly, conflict prompts work" 2>&1
+
+bd update SM-1i3.4 --description "$(bd show SM-1i3.4 --json | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['description'])")\n\n## Implementation Plan\n- Package: cmd/ (rotate.go)\n- Phase 1: decrypt all bundles with current LUK -> temp directory\n- Phase 2: prompt for new password (confirm match), derive new LUK, re-encrypt all bundles\n- Atomic: rename temp bundles to final, keep .bak of old bundles\n- Rollback: on any failure, restore .bak files\n- Progress: \"Rotating bundle 1/3...\"\n- Keychain: delete old items (SecItemDelete), create new with new password\n- Message: \"Rotated N bundles. Run any command to authenticate.\"\n- Dependencies: SM-gtv.7 (encryption), SM-ckp or SM-coy (keychain)\n- Acceptance: all bundles re-encrypted, old keychain items deleted, .bak rollback on failure" 2>&1
+
+bd update SM-rgt.3 --description "$(bd show SM-rgt.3 --json | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['description'])")\n\n## Implementation Plan\n- Create asdf-envmoat plugin repo (separate or embedded)\n- Files: bin/install, bin/list-all-versions, bin/latest-version\n- install: download GitHub release binary for $(uname -s)/$(uname -m)\n- Fallback: go build from source\n- Version resolution: git tags via gh api or git ls-remote\n- Dependencies: SM-gtv.6 (scaffolding complete)\n- Acceptance: asdf install envmoat latest works, binary runs" 2>&1
+
+bd update SM-rgt.4 --description "$(bd show SM-rgt.4 --json | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['description'])")\n\n## Implementation Plan\n- Create mise plugin specification\n- Files: mise.toml or .mise.toml in plugin repo\n- Binary download: GitHub releases with OS/arch detection\n- Build-from-source fallback\n- Dependencies: SM-gtv.6 (scaffolding complete)\n- Acceptance: mise install envmoat works, binary runs" 2>&1
+
+bd update SM-rgt.2 --description "$(bd show SM-rgt.2 --json | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['description'])")\n\n## Implementation Plan\n- Package: cmd/ (completions.go)\n- cobra: rootCmd.GenZshCompletion(os.Stdout), rootCmd.GenBashCompletion(os.Stdout)\n- Command: envmoat completions <zsh|bash>\n- Dynamic completions: profile names (from index.json), key names (from current bundle)\n- Install hints: print path for zsh (~/.zfunc/_envmoat) and bash (~/.bash_completion)\n- Dependencies: SM-gtv.6 (scaffolding)\n- Acceptance: zsh completion script valid, bash completion script valid, dynamic completions work" 2>&1
+
+bd update SM-rgt.5 --description "$(bd show SM-rgt.5 --json | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['description'])")\n\n## Implementation Plan\n- CI: GitHub Actions workflow .github/workflows/release.yml\n- Steps: go build -> codesign sign -> xcrun notarytool submit -> xcrun stapler staple\n- codesign: codesign --sign \"Developer ID Application: ...\" --entitlements entitlements.plist --options runtime envmoat\n- notarization: xcrun notarytool submit envmoat.zip --keychain-profile \"NotaryDistribution\"\n- Entitlements: none needed (no TCC access)\n- Dependencies: SM-gtv.6 (scaffolding)\n- Acceptance: signed binary passes Gatekeeper, notarized, staple attached" 2>&1
+
+bd update SM-rgt.1 --description "$(bd show SM-rgt.1 --json | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['description'])")\n\n## Implementation Plan\n- CI: .github/workflows/ci.yml\n- go mod verify in CI\n- govulncheck ./... (golang.org/x/vuln/cmd/govulncheck)\n- Reproducible builds: GOFLAGS=-buildvcs=false, compare checksums\n- Release: SHA256SUMS file, gpg signature\n- Pin GitHub Actions versions to full commit SHAs\n- Dependencies: SM-gtv.6 (scaffolding)\n- Acceptance: CI passes go mod verify, govulncheck clean, reproducible build checksums match" 2>&1
+
+echo "Done updating Phase 6 and 7 tasks."
+
+---
+Update progress at: /Users/cameronlockhart/Development/secrets-manager/.pi-subagents/artifacts/progress/222a0ee2/progress.md
+
+## Acceptance Contract
+Acceptance level: reviewed
+Completion is not accepted from prose alone. End with a structured acceptance report.
+
+Criteria:
+- criterion-1: Implement the requested change without widening scope
+- criterion-2: Return evidence sufficient for an independent acceptance review
+
+Required evidence: changed-files, tests-added, commands-run, validation-output, residual-risks, no-staged-files
+
+Review gate: required by reviewer.
+
+Finish with a fenced JSON block tagged `acceptance-report` in this shape:
+Use empty arrays when no items apply; array fields contain strings unless object entries are shown.
+```acceptance-report
+{
+  "criteriaSatisfied": [
+    {
+      "id": "criterion-1",
+      "status": "satisfied",
+      "evidence": "specific proof"
+    }
+  ],
+  "changedFiles": [
+    "src/file.ts"
+  ],
+  "testsAddedOrUpdated": [
+    "test/file.test.ts"
+  ],
+  "commandsRun": [
+    {
+      "command": "command",
+      "result": "passed",
+      "summary": "short result"
+    }
+  ],
+  "validationOutput": [
+    "validation output or concise summary"
+  ],
+  "residualRisks": [
+    "none"
+  ],
+  "noStagedFiles": true,
+  "diffSummary": "short description of the diff",
+  "reviewFindings": [
+    "blocker: file.ts:12 - issue found, or no blockers"
+  ],
+  "manualNotes": "anything else the parent should know"
+}
+```

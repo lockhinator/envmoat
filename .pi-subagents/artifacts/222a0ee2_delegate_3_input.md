@@ -1,0 +1,76 @@
+# Task for delegate
+
+Add implementation plans to Phase 2b (Linux), Phase 3 (Profiles), and Phase 4 (Inheritance) tasks. Run these commands:
+
+bd update SM-coy.2 --description "$(bd show SM-coy.2 --json | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['description'])")\n\n## Implementation Plan\n- Package: internal/backend/linux_keyring.go (//go:build linux)\n- Go package: github.com/godbus/dbus/v5 for DBus\n- Secret Service API: org.freedesktop.secrets\n- Methods: OpenSession (plaintext), CreateCollection, SearchItems, SetAttributes, Clear\n- Item attributes: {\"xdg.schemas\": \"envmoat-protected\"} for protected, \"envmoat-cache\" for cache\n- Two-item pattern: same as macOS but via Secret Service D-Bus API\n- PIN prompt: Secret Service handles prompt via polkit/desktop agent\n- Dependencies: SM-gtv.1 (backend interface)\n- Acceptance: StoreLUK creates DBus secret items, GetLUK retrieves and decrypts, DeleteLUK removes items" 2>&1
+
+bd update SM-coy.3 --description "$(bd show SM-coy.3 --json | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['description'])")\n\n## Implementation Plan\n- Package: internal/backend/linux_keyring.go (same file, detect KDE)\n- Detection: os.Getenv(\"XDG_CURRENT_DESKTOP\") contains \"KDE\"\n- KWallet via DBus: org.kde.KWallet interface\n- Methods: open(), folderList(\"envmoat\"), writeEntry(\"envmoat\", \"luk-protected\", value)\n- Fallback: if KWallet DBus fails, fall back to Secret Service API\n- Dependencies: SM-coy.2 (GNOME Keyring base)\n- Acceptance: auto-detects KDE, uses KWallet, falls back to Secret Service" 2>&1
+
+bd update SM-coy.1 --description "$(bd show SM-coy.1 --json | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['description'])")\n\n## Implementation Plan\n- Package: internal/backend/linux_clipboard.go (//go:build linux)\n- Detection: os.Getenv(\"WAYLAND_DISPLAY\") != \"\" -> Wayland -> wl-clipboard\n- X11 fallback: exec.Command(\"xclip\", \"-selection\", \"clipboard\")\n- Wayland: exec.Command(\"wl-clipboard\", \"-i\")\n- Fallback: if neither found, log warning to stderr, return nil error (no-op)\n- Dependencies: SM-gtv.1 (backend interface)\n- Acceptance: Copy() works on X11 and Wayland, warns if neither available" 2>&1
+
+bd update SM-idf.3 --description "$(bd show SM-idf.3 --json | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['description'])")\n\n## Implementation Plan\n- Package: cmd/ (profiles.go with subcommands)\n- Cobra: profilesCmd with list, create, delete, link, unlink subcommands\n- list: read index.json profiles section, print name -> bundle mapping + metadata\n- create: validate name (regexp ^[a-zA-Z0-9_-]+$), create empty bundle, add to index.json profiles, atomic write\n- Bundle name: <slugified-name>.enc\n- Dependencies: SM-gtv.7 (encryption), SM-gtv.4 (resolver)\n- Acceptance: list shows profiles, create adds to index + creates bundle, name validation works, error on duplicate" 2>&1
+
+bd update SM-idf.1 --description "$(bd show SM-idf.1 --json | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['description'])")\n\n## Implementation Plan\n- Package: cmd/ (profiles.go)\n- delete: remove from index.json profiles section, delete bundle file, confirmation prompt\n- -y flag: skip confirmation\n- Atomic write for index.json\n- Dependencies: SM-idf.3 (profiles list+create)\n- Acceptance: delete removes profile + bundle, confirmation prompt works, -y skips" 2>&1
+
+bd update SM-idf.2 --description "$(bd show SM-idf.2 --json | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['description'])")\n\n## Implementation Plan\n- Package: cmd/ (profiles.go)\n- link: create .envmoat with content \"profile: <name>\", auto-append to .gitignore, error if marker exists (--force flag)\n- unlink: remove .envmoat marker only, don't delete profile/bundle, confirmation prompt\n- .gitignore: check if .envmoat already in .gitignore before appending\n- Dependencies: SM-idf.3 (profiles list+create)\n- Acceptance: link creates marker + gitignore entry, unlink removes marker only, --force overwrites existing marker" 2>&1
+
+bd update SM-1pz.2 --description "$(bd show SM-1pz.2 --json | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['description'])")\n\n## Implementation Plan\n- Package: internal/resolver/ (resolver.go)\n- Marker content \"disabled\" (after trim): return nil bundle, nil error\n- load command: on nil bundle, exit 0, no output\n- Debug: log \"Marker disabled at <path>\" to stderr\n- Dependencies: SM-gtv.4 (directory walk)\n- Acceptance: disabled marker stops walk, load emits nothing, no error" 2>&1
+
+bd update SM-1pz.4 --description "$(bd show SM-1pz.4 --json | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['description'])")\n\n## Implementation Plan\n- Package: internal/resolver/ (resolver.go)\n- Marker content \"profile: <name>\" (after trim): parse name, look up in index.json profiles section\n- Error if profile not found: \"Profile '<name>' not found in index.json\"\n- Debug: log \"Loading profile <name> from marker at <path>\"\n- Dependencies: SM-gtv.4 (directory walk), SM-idf.3 (profiles)\n- Acceptance: profile override loads correct bundle, error on missing profile" 2>&1
+
+bd update SM-1pz.1 --description "$(bd show SM-1pz.1 --json | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['description'])")\n\n## Implementation Plan\n- Package: internal/resolver/ (resolver.go)\n- filepath.EvalSymlinks(PWD) for canonical path\n- Store canonical paths in index.json\n- Test: create symlink to project dir, verify same bundle resolved\n- Dependencies: SM-gtv.4 (directory walk)\n- Acceptance: symlink and real path resolve to same bundle, no duplicate bundles" 2>&1
+
+bd update SM-1pz.3 --description "$(bd show SM-1pz.3 --json | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['description'])")\n\n## Implementation Plan\n- Package: internal/resolver/ (resolver.go)\n- ENVMOAT_WALK_ROOT env var: os.Getenv(\"ENVMOAT_WALK_ROOT\")\n- Validation: must be absolute (filepath.IsAbs), must exist (os.Stat)\n- Walk stops at walk root instead of /\n- Debug: log \"Walk boundary: <path>\"\n- Dependencies: SM-gtv.4 (directory walk)\n- Acceptance: walk stops at custom root, error on invalid root path" 2>&1
+
+echo "Done updating Phase 2b, 3, 4 tasks."
+
+---
+Update progress at: /Users/cameronlockhart/Development/secrets-manager/.pi-subagents/artifacts/progress/222a0ee2/progress.md
+
+## Acceptance Contract
+Acceptance level: checked
+Completion is not accepted from prose alone. End with a structured acceptance report.
+
+Criteria:
+- criterion-1: Implement the requested change without widening scope
+
+Required evidence: changed-files, tests-added, commands-run, residual-risks, no-staged-files
+
+Finish with a fenced JSON block tagged `acceptance-report` in this shape:
+Use empty arrays when no items apply; array fields contain strings unless object entries are shown.
+```acceptance-report
+{
+  "criteriaSatisfied": [
+    {
+      "id": "criterion-1",
+      "status": "satisfied",
+      "evidence": "specific proof"
+    }
+  ],
+  "changedFiles": [
+    "src/file.ts"
+  ],
+  "testsAddedOrUpdated": [
+    "test/file.test.ts"
+  ],
+  "commandsRun": [
+    {
+      "command": "command",
+      "result": "passed",
+      "summary": "short result"
+    }
+  ],
+  "validationOutput": [
+    "validation output or concise summary"
+  ],
+  "residualRisks": [
+    "none"
+  ],
+  "noStagedFiles": true,
+  "diffSummary": "short description of the diff",
+  "reviewFindings": [
+    "blocker: file.ts:12 - issue found, or no blockers"
+  ],
+  "manualNotes": "anything else the parent should know"
+}
+```

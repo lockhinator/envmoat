@@ -1,0 +1,7 @@
+Two internal contradictions found in the plan:
+
+**1. "Password fallback" is claimed but not implemented.** Core Requirements promise "Biometric unlock (Touch ID) with password fallback." The Authentication section documents that Touch ID "falls back to Mac login password" — not the user's secrets-manager master password. The master password only derives the LUK at `setup`/`rotate` time; at runtime, the LUK sits in the Keychain gated by biometrics or the system login password. There is no mechanism to authenticate with the master password as a runtime fallback to Touch ID.
+
+**2. The `links` section in `index.json` is populated but its usage by the loader is underspecified.** `profiles link` writes to `links` (path → profile name), yet the loader's resolution for `profile: <name>` markers reads the profile name directly from the marker file and looks it up in `profiles` — never consulting `links`. The resolution for empty markers says "check `auto` then `links`," but `init` (which creates empty markers) populates `auto`, while `profiles link` (which populates `links`) creates `profile:` markers, not empty ones. The `links` section appears to have no clear consumer in the resolution flow.
+
+No missing core features — all seven stated requirements (central store, encryption, Touch ID, terminal injection, inheritance, Docker, distribution) are addressed.

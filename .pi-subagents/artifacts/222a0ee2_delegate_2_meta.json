@@ -1,0 +1,37 @@
+{
+  "runId": "222a0ee2",
+  "agent": "delegate",
+  "task": "Add implementation plans to Phase 2 (macOS Keychain) tasks. Run these commands:\n\nbd update SM-ckp.3 --description \"$(bd show SM-ckp.3 --json | python3 -c \"import sys,json; print(json.load(sys.stdin)[0]['description'])\")\\n\\n## Implementation Plan\\n- Package: internal/backend/darwin_keychain.go (//go:build darwin)\\n- CGO: #import <Security/Security.h>\\n- Functions: SecItemAdd, SecItemCopyMatching, SecItemDelete\\n- Protected item: kSecAttrService=\\\"envmoat\\\", kSecAttrAccount=\\\"envmoat-luk-protected\\\", with SecAccessControlRef\\n- Cache item: kSecAttrAccount=\\\"envmoat-luk-cache\\\", no SecAccessControl, include timestamp in value\\n- Value format: JSON {\\\"luk\\\": \\\"<hex>\\\", \\\"ts\\\": \\\"<unix>\\\"}\\n- kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly\\n- Dependencies: SM-gtv.1 (backend interface)\\n- Acceptance: StoreLUK creates both items, GetLUK returns from cache first then protected, DeleteLUK removes both\" 2>&1\n\nbd update SM-ckp.5 --description \"$(bd show SM-ckp.5 --json | python3 -c \"import sys,json; print(json.load(sys.stdin)[0]['description'])\")\\n\\n## Implementation Plan\\n- Package: internal/backend/darwin_keychain.go\\n- CGO: SecAccessControlCreateWithFlags(NULL, kSecAccessControlUserPresence, kSecAccessControlAllowPasswordChange, &err)\\n- Attach SecAccessControlRef to SecItemAdd via kSecAttrAccessControl\\n- Error handling: errSecUserCanceled (-25300), errSecAuthFailed (-25293)\\n- Fallback: macOS shows login password prompt automatically when biometry unavailable\\n- Consider 99designs/keychain for basic SecItemAdd/CopyMatching, custom CGO only for SecAccessControl\\n- Dependencies: SM-ckp.3 (two-item pattern)\\n- Acceptance: Touch ID prompt appears on GetLUK, cancel returns error, login password fallback works\" 2>&1\n\nbd update SM-ckp.1 --description \"$(bd show SM-ckp.1 --json | python3 -c \"import sys,json; print(json.load(sys.stdin)[0]['description'])\")\\n\\n## Implementation Plan\\n- Package: internal/session/\\n- Files: session.go (TTL management, cache check)\\n- Default TTL: 15 minutes, configurable via config.yaml\\n- Sliding window: on each GetLUK success, update cache timestamp\\n- Cache check: GetLUK reads cache item, check timestamp, if expired delete cache + prompt via protected\\n- Cross-terminal: Keychain cache item is shared (fixed account name)\\n- Dependencies: SM-ckp.3 (two-item pattern)\\n- Acceptance: session stays unlocked for 15min, resets on access, expiry deletes cache, shared across terminals\" 2>&1\n\nbd update SM-ckp.2 --description \"$(bd show SM-ckp.2 --json | python3 -c \"import sys,json; print(json.load(sys.stdin)[0]['description'])\")\\n\\n## Implementation Plan\\n- Package: cmd/ (status.go, logout.go) or add to root.go\\n- status: check Keychain items exist (SecItemCopyMatching with kSecMatchLimitOne), show TTL remaining, show active profile\\n- logout: SecItemDelete cache item only, print confirmation to stderr\\n- Debug hint: \\\"Set ENVMOAT_DEBUG=1 for verbose logging\\\"\\n- Dependencies: SM-ckp.1 (session), SM-gtv.4 (resolver for active profile)\\n- Acceptance: status shows TTL + keychain state, logout clears cache, next command prompts for auth\" 2>&1\n\nbd update SM-ckp.4 --description \"$(bd show SM-ckp.4 --json | python3 -c \"import sys,json; print(json.load(sys.stdin)[0]['description'])\")\\n\\n## Implementation Plan\\n- Package: cmd/ (doctor.go) or add to root.go\\n- exec.Command(\\\"fdesetup\\\", \\\"isactive\\\") -> check exit code\\n- Warn: \\\"FileVault is disabled. Full-disk encryption is recommended.\\\"\\n- Integrate into setup (warn, don't block) and doctor (report status)\\n- Dependencies: none\\n- Acceptance: setup warns if FileVault off, doctor reports FileVault status\" 2>&1\n\necho \"Done updating Phase 2 tasks.\"\n\n---\nUpdate progress at: /Users/cameronlockhart/Development/secrets-manager/.pi-subagents/artifacts/progress/222a0ee2/progress.md",
+  "exitCode": 0,
+  "usage": {
+    "input": 5538,
+    "output": 2086,
+    "cacheRead": 19248,
+    "cacheWrite": 0,
+    "cost": 0,
+    "turns": 4
+  },
+  "model": "homelab/qwen36-27b",
+  "attemptedModels": [
+    "homelab/qwen36-27b"
+  ],
+  "modelAttempts": [
+    {
+      "model": "homelab/qwen36-27b",
+      "success": true,
+      "exitCode": 0,
+      "usage": {
+        "input": 5538,
+        "output": 2086,
+        "cacheRead": 19248,
+        "cacheWrite": 0,
+        "cost": 0,
+        "turns": 4
+      }
+    }
+  ],
+  "durationMs": 72767,
+  "toolCount": 7,
+  "transcriptPath": "/Users/cameronlockhart/Development/secrets-manager/.pi-subagents/artifacts/222a0ee2_delegate_2_transcript.jsonl",
+  "timestamp": 1783663896838
+}
