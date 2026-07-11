@@ -167,3 +167,26 @@ func equalBytes(a, b []byte) bool {
 	}
 	return true
 }
+
+// GetRemainingTTL returns the remaining time until the cached LUK expires.
+// It reads the raw keyring data and parses the expiry timestamp without
+// resetting the TTL (no sliding window). Returns 0 if no cache exists or
+// if the cache has already expired.
+func (s *Session) GetRemainingTTL() time.Duration {
+	data, err := s.keyring.GetLUK()
+	if err != nil {
+		return 0
+	}
+
+	var sv sessionValue
+	if err := json.Unmarshal(data, &sv); err != nil {
+		// Old format (raw LUK bytes) — treat as always valid.
+		return s.ttl
+	}
+
+	remaining := time.Duration(sv.Expiry-time.Now().UnixNano())
+	if remaining <= 0 {
+		return 0
+	}
+	return remaining
+}

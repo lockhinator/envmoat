@@ -5,7 +5,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/lockinator/envmoat/internal/backend"
 	"github.com/lockinator/envmoat/internal/session"
 )
 
@@ -17,24 +16,24 @@ func TestLogoutClearsSession(t *testing.T) {
 	os.Chdir(markerDir)
 	defer os.Chdir(origDir)
 
-	// Verify session exists before logout.
-	sess := newSessionForTest(keyringBackend)
+	// Verify session exists before logout (mock keyring has LUK).
+	sess := session.NewSession(keyringBackend)
 	if !sess.Exists() {
 		t.Fatal("expected session to exist before logout")
 	}
 
-	stdout, _, err := runCmd(t, []string{"logout"})
+	_, stderr, err := runCmd(t, []string{"logout"})
 	if err != nil {
-		t.Fatalf("logout failed: %v", err)
-	}
-	if !strings.Contains(stdout, "Session cleared") {
-		t.Errorf("expected 'Session cleared' in output, got: %q", stdout)
+		t.Fatalf("logout command failed: %v stderr: %s", err, stderr)
 	}
 
-	// Verify session is gone after logout.
-	sess = newSessionForTest(keyringBackend)
+	if !strings.Contains(stderr, "Session cleared") {
+		t.Errorf("expected 'Session cleared' in stderr, got:\n%s", stderr)
+	}
+
+	// Verify session is cleared after logout.
 	if sess.Exists() {
-		t.Fatal("expected session to be cleared after logout")
+		t.Error("expected session to be cleared after logout")
 	}
 }
 
@@ -46,21 +45,18 @@ func TestLogoutNoSession(t *testing.T) {
 	os.Chdir(markerDir)
 	defer os.Chdir(origDir)
 
-	// Clear the session first so there's no active session.
-	keyringBackend = &mockKeyringBackend{luk: nil}
+	// Clear the session first.
+	sess := session.NewSession(keyringBackend)
+	if err := sess.Clear(); err != nil {
+		t.Fatalf("clear session: %v", err)
+	}
 
-	stdout, _, err := runCmd(t, []string{"logout"})
+	stdout, stderr, err := runCmd(t, []string{"logout"})
 	if err != nil {
-		t.Fatalf("logout failed: %v", err)
-	}
-	if !strings.Contains(stdout, "No active session") {
-		t.Errorf("expected 'No active session' in output, got: %q", stdout)
+		t.Fatalf("logout command failed: %v stderr: %s", err, stderr)
 	}
 
-	// Restore the original keyring backend for other tests.
-	keyringBackend = backend.NewKeyringBackend()
-}
-
-func newSessionForTest(kb backend.KeyringBackend) *session.Session {
-	return session.NewSession(kb)
+	if !strings.Contains(stdout, "No active session") && !strings.Contains(stderr, "No active session") {
+		t.Errorf("expected 'No active session' in output, got stdout=%q stderr=%q", stdout, stderr)
+	}
 }

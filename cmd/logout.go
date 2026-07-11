@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 
@@ -10,9 +11,11 @@ import (
 
 var logoutCmd = &cobra.Command{
 	Use:   "logout",
-	Short: "Clear the active session and require re-authentication",
-	Long: `Delete the cached LUK from the platform keyring so that the next
-envmoat command will prompt for your master password (Touch ID).
+	Short: "Clear the active session cache",
+	Long: `Delete the cached LUK from the platform keyring.
+
+After logout, the next envmoat command will prompt for your master password
+(or Touch ID on macOS).
 
 Example:
   envmoat logout`,
@@ -23,11 +26,12 @@ func init() {
 	rootCmd.AddCommand(logoutCmd)
 }
 
-func runLogout(cmd *cobra.Command, args []string) error {
+func runLogout(cmd *cobra.Command, _ []string) error {
 	sess := session.NewSession(keyringBackend)
 
+	// Check if a session exists before clearing.
 	if !sess.Exists() {
-		fmt.Println("No active session.")
+		fmt.Fprintln(os.Stderr, "No active session.")
 		return nil
 	}
 
@@ -35,6 +39,6 @@ func runLogout(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("clear session: %w", err)
 	}
 
-	fmt.Println("Session cleared. Next command will prompt for Touch ID.")
+	fmt.Fprintln(os.Stderr, "Session cleared. Next command will prompt for Touch ID.")
 	return nil
 }

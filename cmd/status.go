@@ -1,13 +1,13 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/spf13/cobra"
 
-	"github.com/lockinator/envmoat/internal/resolver"
+	"github.com/lockinator/envmoat/internal/auth"
 	"github.com/lockinator/envmoat/internal/session"
 	"github.com/lockinator/envmoat/internal/store"
 )
@@ -15,8 +15,11 @@ import (
 var statusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show envmoat session and bundle status",
-	Long: `Show current envmoat status including bundle, profile, session TTL,
-and keychain state.
+	Long: `Display the current envmoat status including:
+- Active bundle and profile name
+- Session TTL remaining
+- Keychain state (protected item and cache)
+- Debug mode hint
 
 Example:
   envmoat status`,
@@ -27,92 +30,79 @@ func init() {
 	rootCmd.AddCommand(statusCmd)
 }
 
-func runStatus(cmd *cobra.Command, args []string) error {
-	// Resolve bundle info (without requiring decryption).
-	bundleName := "none"
-	profileName := "none"
+func runStatus(cmd *cobra.Command, _ []string) error {
+	fmt.Println("envmoat status")
 
-	s, err := store.NewStore()
-	if err == nil && s.IsInitialized() {
-		result, resolveErr := resolver.ResolveFromPWD()
-		if resolveErr == nil && result != nil {
-			switch result.Marker {
-			case resolver.MarkerDefault:
-				bundleName, _ = s.GetAutoBundle(result.MarkerDir)
-				if bundleName == "" {
-					bundleName = "none"
-				}
-			case resolver.MarkerProfile:
-				profileName = result.ProfileName
-				bundleName, _ = s.GetProfileBundle(profileName)
-				if bundleName == "" {
-					bundleName = "none"
-				}
-			default:
-				bundleName = "none"
-			}
-		} else {
-			bundleName = "none"
-		}
+	// Try to resolve the active bundle.
+	bundle, err := resolveBundle()
+	if err != nil {
+		// Not in a tracked directory — show partial status.
+		fmt.Println("Bundle: none")
+		fmt.Println("Profile: none")
+		printSessionStatus(cmd)
+		return nil
+	}
+
+	fmt.Printf("Bundle: %s\n", bundle.BundleFile)
+	if bundle.ProfileName != "" {
+		fmt.Printf("Profile: %s\n", bundle.ProfileName)
 	} else {
-		bundleName = "none"
+		fmt.Println("Profile: default")
 	}
-
-	// Session state.
-	sessionStatus := "inactive"
-	sess := session.NewSession(keyringBackend)
-	if sess.Exists() {
-		// Try to get remaining TTL by reading the cache item directly.
-		data, err := keyringBackend.GetLUK()
-		if err == nil && len(data) > 0 {
-			sessionStatus = formatSessionStatus(data, sess)
-		} else {
-			sessionStatus = "active"
-		}
-	}
-
-	// Keychain state: check if LUK exists in the keyring (both protected item and cache).
-	_, protectedErr := keyringBackend.GetLUK()
-	protectedExists := protectedErr == nil
-	_, cacheErr := keyringBackend.GetLUK()
-	cacheExists := cacheErr == nil
-
-	// Print status.
-	fmt.Printf("Bundle: %s\n", bundleName)
-	fmt.Printf("Profile: %s\n", profileName)
-	fmt.Printf("Session: %s\n", sessionStatus)
-	fmt.Printf("Keychain: protected=%v cache=%v\n", protectedExists, cacheExists)
-	fmt.Println("Debug: Set ENVMOAT_DEBUG=1 for verbose logging")
-
+	printSessionStatus(cmd)
 	return nil
 }
 
-// formatSessionStatus reads the cached session value and returns a human-readable
-// status string with remaining TTL or "expired".
-func formatSessionStatus(data []byte, sess *session.Session) string {
-	_ = sess // used for TTL reference if needed in future
-	// Try to parse as JSON sessionValue.
-	var sv struct {
-		Expiry int64 `json:"expiry"`
+// printSessionStatus prints session and keychain diagnostics to stderr.
+func printSessionStatus(c *cobra.Command) {
+	sess := session.NewSession(keyringBackend)
+	remaining := sess.GetRemainingTTL()
+	if remaining > 0 {
+		fmt.Fprintf(os.Stderr, "Session: active (%s remaining)\n", formatDuration(remaining))
+	} else if sess.Exists() {
+		// Exists() returns true but GetRemainingTTL returned 0 — handle gracefully.
+		fmt.Fprintln(os.Stderr, "Session: active")
+	} else {
+		fmt.Fprintln(os.Stderr, "Session: expired")
 	}
-	if err := json.Unmarshal(data, &sv); err == nil && sv.Expiry > 0 {
-		remaining := time.Until(time.Unix(0, sv.Expiry))
-		if remaining <= 0 {
-			return "expired"
-		}
-		return fmt.Sprintf("active (%s remaining)", humanizeDuration(remaining))
+
+	// Keychain state.
+	storePath := getStorePath()
+	var protectedStr, cacheStr string
+	if auth.HasLUK(storePath) {
+		protectedStr = "yes"
+	} else {
+		protectedStr = "no"
 	}
-	return "active"
+	lukData, err := keyringBackend.GetLUK()
+	if err == nil && len(lukData) > 0 {
+		cacheStr = "yes"
+	} else {
+		cacheStr = "no"
+	}
+	fmt.Fprintf(os.Stderr, "Keychain: protected=%s cache=%s\n", protectedStr, cacheStr)
+	fmt.Fprintln(os.Stderr, "Debug: Set ENVMOAT_DEBUG=1 for verbose logging")
 }
 
-// humanizeDuration formats a duration into a human-readable string like "12m".
-func humanizeDuration(d time.Duration) string {
+// getStorePath returns the path to the envmoat store directory.
+func getStorePath() string {
+	s, err := store.NewStore()
+	if err != nil {
+		return ""
+	}
+	return s.BasePath
+}
+
+// formatDuration formats a time.Duration as a human-readable string.
+func formatDuration(d time.Duration) string {
 	d = d.Round(time.Minute)
-	if d < time.Minute {
-		return fmt.Sprintf("%ds", int(d.Seconds()))
+	if d >= 60*time.Minute {
+		hours := d / time.Hour
+		minutes := (d % time.Hour) / time.Minute
+		if minutes > 0 {
+			return fmt.Sprintf("%dh%dm", hours, minutes)
+		}
+		return fmt.Sprintf("%dh", hours)
 	}
-	if d < time.Hour {
-		return fmt.Sprintf("%dm", int(d.Minutes()))
-	}
-	return fmt.Sprintf("%dh%dm", int(d.Hours()), int(d.Minutes())%60)
+	return fmt.Sprintf("%dm", d/time.Minute)
 }
