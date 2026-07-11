@@ -7,7 +7,8 @@ import (
 	"strings"
 )
 
-const markerName = ".envmoat"
+// MarkerName is the filename of the envmoat marker file.
+const MarkerName = ".envmoat"
 
 // MarkerContent represents the parsed content of a .envmoat marker file.
 type MarkerContent int
@@ -41,7 +42,7 @@ func Resolve(dir string) (*ResolveResult, error) {
 	walkRoot := FindWalkRoot()
 
 	for {
-		markerPath := filepath.Join(dir, markerName)
+		markerPath := filepath.Join(dir, MarkerName)
 		if info, err := os.Stat(markerPath); err == nil && !info.IsDir() {
 			content, profileName, err := ParseMarker(markerPath)
 			if err != nil {
@@ -59,7 +60,7 @@ func Resolve(dir string) (*ResolveResult, error) {
 			}, nil
 		}
 
-		debug("checking %s — no %s", dir, markerName)
+		debug("checking %s — no %s", dir, MarkerName)
 		if dir == walkRoot || dir == "/" {
 			debug("reached walk root %s", walkRoot)
 			return nil, nil

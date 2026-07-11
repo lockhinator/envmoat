@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"bytes"
-	"os"
 	"strings"
 	"testing"
 )
@@ -73,7 +72,9 @@ func TestSubcommandsExist(t *testing.T) {
 }
 
 func TestSubcommandsReachable(t *testing.T) {
-	// Test that each subcommand can be executed (they should print "not implemented yet")
+	// Test that each subcommand is registered and can be found.
+	// Commands that require interactive input or specific context may fail,
+	// but they should not return "unknown command" errors.
 	expectedCmds := []string{
 		"setup",
 		"init",
@@ -88,27 +89,12 @@ func TestSubcommandsReachable(t *testing.T) {
 
 	for _, name := range expectedCmds {
 		t.Run(name, func(t *testing.T) {
-			// Capture os.Stdout since fmt.Println writes there directly
-			oldStdout := os.Stdout
-			r, w, _ := os.Pipe()
-			os.Stdout = w
-
-			rootCmd.SetArgs([]string{name})
-			if err := rootCmd.Execute(); err != nil {
-				w.Close()
-				os.Stdout = oldStdout
-				t.Errorf("subcommand %q failed: %v", name, err)
-				return
+			cmd, _, err := rootCmd.Find([]string{name})
+			if err != nil {
+				t.Fatalf("subcommand %q not found: %v", name, err)
 			}
-
-			w.Close()
-			os.Stdout = oldStdout
-
-			var buf bytes.Buffer
-			buf.ReadFrom(r)
-			output := buf.String()
-			if !strings.Contains(output, "not implemented yet") {
-				t.Errorf("subcommand %q should print 'not implemented yet', got: %q", name, output)
+			if cmd == nil {
+				t.Fatalf("subcommand %q returned nil command", name)
 			}
 		})
 	}

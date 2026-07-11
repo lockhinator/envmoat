@@ -10,7 +10,7 @@ import (
 
 func TestParseMarkerEmpty(t *testing.T) {
 	dir := tmpDir(t)
-	path := filepath.Join(dir, markerName)
+	path := filepath.Join(dir, MarkerName)
 	os.WriteFile(path, []byte(""), 0600)
 
 	content, name, err := ParseMarker(path)
@@ -27,7 +27,7 @@ func TestParseMarkerEmpty(t *testing.T) {
 
 func TestParseMarkerWhitespaceOnly(t *testing.T) {
 	dir := tmpDir(t)
-	path := filepath.Join(dir, markerName)
+	path := filepath.Join(dir, MarkerName)
 	os.WriteFile(path, []byte("  \n\n  "), 0600)
 
 	content, _, err := ParseMarker(path)
@@ -41,7 +41,7 @@ func TestParseMarkerWhitespaceOnly(t *testing.T) {
 
 func TestParseMarkerDisabled(t *testing.T) {
 	dir := tmpDir(t)
-	path := filepath.Join(dir, markerName)
+	path := filepath.Join(dir, MarkerName)
 	os.WriteFile(path, []byte("disabled\n"), 0600)
 
 	content, _, err := ParseMarker(path)
@@ -55,7 +55,7 @@ func TestParseMarkerDisabled(t *testing.T) {
 
 func TestParseMarkerDisabledWithWhitespace(t *testing.T) {
 	dir := tmpDir(t)
-	path := filepath.Join(dir, markerName)
+	path := filepath.Join(dir, MarkerName)
 	os.WriteFile(path, []byte("  disabled  \n"), 0600)
 
 	content, _, err := ParseMarker(path)
@@ -69,7 +69,7 @@ func TestParseMarkerDisabledWithWhitespace(t *testing.T) {
 
 func TestParseMarkerProfile(t *testing.T) {
 	dir := tmpDir(t)
-	path := filepath.Join(dir, markerName)
+	path := filepath.Join(dir, MarkerName)
 	os.WriteFile(path, []byte("profile: myapp-dev\n"), 0600)
 
 	content, name, err := ParseMarker(path)
@@ -86,7 +86,7 @@ func TestParseMarkerProfile(t *testing.T) {
 
 func TestParseMarkerProfileWithExtraWhitespace(t *testing.T) {
 	dir := tmpDir(t)
-	path := filepath.Join(dir, markerName)
+	path := filepath.Join(dir, MarkerName)
 	os.WriteFile(path, []byte("  profile:   staging  \n"), 0600)
 
 	content, name, err := ParseMarker(path)
@@ -103,7 +103,7 @@ func TestParseMarkerProfileWithExtraWhitespace(t *testing.T) {
 
 func TestParseMarkerEmptyProfileName(t *testing.T) {
 	dir := tmpDir(t)
-	path := filepath.Join(dir, markerName)
+	path := filepath.Join(dir, MarkerName)
 	os.WriteFile(path, []byte("profile: \n"), 0600)
 
 	_, _, err := ParseMarker(path)
@@ -114,7 +114,7 @@ func TestParseMarkerEmptyProfileName(t *testing.T) {
 
 func TestParseMarkerUnrecognized(t *testing.T) {
 	dir := tmpDir(t)
-	path := filepath.Join(dir, markerName)
+	path := filepath.Join(dir, MarkerName)
 	os.WriteFile(path, []byte("some random text\n"), 0600)
 
 	_, _, err := ParseMarker(path)
@@ -125,7 +125,7 @@ func TestParseMarkerUnrecognized(t *testing.T) {
 
 func TestParseMarkerCaseSensitive(t *testing.T) {
 	dir := tmpDir(t)
-	path := filepath.Join(dir, markerName)
+	path := filepath.Join(dir, MarkerName)
 	os.WriteFile(path, []byte("DISABLED\n"), 0600)
 
 	_, _, err := ParseMarker(path)
@@ -145,7 +145,7 @@ func TestParseMarkerNonexistent(t *testing.T) {
 
 func TestResolveFindsMarker(t *testing.T) {
 	dir := tmpDir(t)
-	os.WriteFile(filepath.Join(dir, markerName), []byte(""), 0600)
+	os.WriteFile(filepath.Join(dir, MarkerName), []byte(""), 0600)
 
 	result, err := Resolve(dir)
 	if err != nil {
@@ -166,7 +166,7 @@ func TestResolveWalksUp(t *testing.T) {
 	root := tmpDir(t)
 	child := filepath.Join(root, "child", "grandchild")
 	os.MkdirAll(child, 0755)
-	os.WriteFile(filepath.Join(root, markerName), []byte("profile: test-profile\n"), 0600)
+	os.WriteFile(filepath.Join(root, MarkerName), []byte("profile: test-profile\n"), 0600)
 
 	result, err := Resolve(child)
 	if err != nil {
@@ -190,8 +190,8 @@ func TestResolveStopsAtDisabled(t *testing.T) {
 	root := tmpDir(t)
 	child := filepath.Join(root, "child")
 	os.MkdirAll(child, 0755)
-	os.WriteFile(filepath.Join(root, markerName), []byte("profile: parent\n"), 0600)
-	os.WriteFile(filepath.Join(child, markerName), []byte("disabled\n"), 0600)
+	os.WriteFile(filepath.Join(root, MarkerName), []byte("profile: parent\n"), 0600)
+	os.WriteFile(filepath.Join(child, MarkerName), []byte("disabled\n"), 0600)
 
 	result, err := Resolve(child)
 	if err != nil {
@@ -228,7 +228,7 @@ func TestResolveNoMarker(t *testing.T) {
 
 func TestResolveFromPWD(t *testing.T) {
 	dir := tmpDir(t)
-	os.WriteFile(filepath.Join(dir, markerName), []byte("profile: pwd-test\n"), 0600)
+	os.WriteFile(filepath.Join(dir, MarkerName), []byte("profile: pwd-test\n"), 0600)
 
 	origPwd, _ := os.Getwd()
 	os.Chdir(dir)

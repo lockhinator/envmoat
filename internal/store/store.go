@@ -24,6 +24,11 @@ import (
 	"github.com/lockinator/envmoat/internal/crypto"
 )
 
+// MarshalBundle serializes a map of secrets to JSON bytes.
+func MarshalBundle(secrets map[string]string) ([]byte, error) {
+	return json.Marshal(secrets)
+}
+
 // validateBundleFilename ensures filename is a simple basename with no path traversal.
 func validateBundleFilename(filename string) error {
 	if filename == "" {
@@ -103,6 +108,18 @@ func NewStore() (*Store, error) {
 	}
 
 	basePath := filepath.Join(home, StoreDirName)
+	return &Store{
+		BasePath:    basePath,
+		BundlesPath: filepath.Join(basePath, BundlesDirName),
+		ConfigPath:  filepath.Join(basePath, ConfigFileName),
+		IndexPath:   filepath.Join(basePath, IndexFileName),
+		indexLock:   flock.New(filepath.Join(basePath, ".index.lock")),
+	}, nil
+}
+
+// NewStoreAt creates a Store pointing to a specific basePath.
+// Useful for testing. Does not create the directory structure; use InitStore() for that.
+func NewStoreAt(basePath string) (*Store, error) {
 	return &Store{
 		BasePath:    basePath,
 		BundlesPath: filepath.Join(basePath, BundlesDirName),
