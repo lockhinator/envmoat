@@ -116,3 +116,37 @@ func TestSubcommandHelp(t *testing.T) {
 		t.Errorf("expected setup help to contain 'Create a master password', got: %q", output)
 	}
 }
+
+func TestForceReauthFlagExists(t *testing.T) {
+	// Verify the --force-reauth flag is registered on rootCmd.
+	flag := rootCmd.Flags().Lookup("force-reauth")
+	if flag == nil {
+		t.Fatal("--force-reauth flag not found on root command")
+	}
+	if flag.DefValue != "false" {
+		t.Errorf("--force-reauth default = %q, want %q", flag.DefValue, "false")
+	}
+	if flag.Name != "force-reauth" {
+		t.Errorf("--force-reauth flag name = %q, want %q", flag.Name, "force-reauth")
+	}
+}
+
+func TestForceReauthFlagInHelp(t *testing.T) {
+	// Verify --force-reauth appears in root command help output.
+	buf := new(bytes.Buffer)
+	rootCmd.SetOut(buf)
+	rootCmd.SetErr(buf)
+	rootCmd.SetArgs([]string{"--help"})
+
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("root --help failed: %v", err)
+	}
+
+	output := buf.String()
+	if !strings.Contains(output, "force-reauth") {
+		t.Errorf("expected help output to contain 'force-reauth', got:\n%s", output)
+	}
+	if !strings.Contains(output, "bypassing session cache") {
+		t.Errorf("expected help output to contain 'bypassing session cache', got:\n%s", output)
+	}
+}

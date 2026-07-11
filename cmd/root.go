@@ -10,6 +10,9 @@ import (
 // Version is set at build time via ldflags.
 var Version = "dev"
 
+// forceReauth forces re-authentication by bypassing the session cache.
+var forceReauth bool
+
 var rootCmd = &cobra.Command{
 	Use:   "envmoat",
 	Short: "Keep your secrets out of AI agent context",
@@ -51,4 +54,6 @@ func Execute() {
 func init() {
 	rootCmd.Version = Version
 	rootCmd.SetVersionTemplate("envmoat version {{.Version}}\n")
+	rootCmd.Flags().BoolVar(&forceReauth, "force-reauth", false,
+		"Always prompt for master password, bypassing session cache")
 }

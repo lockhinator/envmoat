@@ -10,6 +10,7 @@ import (
 	"github.com/lockinator/envmoat/internal/cmdutil"
 	"github.com/lockinator/envmoat/internal/crypto"
 	"github.com/lockinator/envmoat/internal/resolver"
+	"github.com/lockinator/envmoat/internal/session"
 	"github.com/lockinator/envmoat/internal/store"
 	"golang.org/x/term"
 )
@@ -73,31 +74,57 @@ func resolveBundle() (*BundleContext, error) {
 		return nil, fmt.Errorf("unknown marker content")
 	}
 
-	// Get LUK from keyring or prompt.
-	luk, err := keyringBackend.GetLUK()
-	if err != nil {
-		if err == backend.ErrNotAvailable {
-			// Prompt for master password.
-			cfg, cfgErr := store.ReadConfig(s.ConfigPath)
-			if cfgErr != nil {
-				return nil, fmt.Errorf("read config: %w", cfgErr)
+	// Get LUK from session cache or prompt.
+	var luk []byte
+	sess := session.NewSession(keyringBackend)
+
+	if !forceReauth {
+		cfg, cfgErr := store.ReadConfig(s.ConfigPath)
+		if cfgErr != nil {
+			return nil, fmt.Errorf("read config: %w", cfgErr)
+		}
+
+		luk, err = sess.GetLUKWithSalt(cfg.GlobalSalt)
+		if err != nil {
+			if err == backend.ErrNotAvailable || err == session.ErrExpired || err == session.ErrConfigChanged {
+				// Prompt for master password.
+				fmt.Fprint(os.Stderr, "Enter master password: ")
+				password, readErr := readPassword()
+				if readErr != nil {
+					return nil, fmt.Errorf("read password: %w", readErr)
+				}
+				fmt.Fprintln(os.Stderr)
+				luk, err = crypto.DeriveLUK(password, cfg.GlobalSalt)
+				if err != nil {
+					return nil, fmt.Errorf("derive LUK: %w", err)
+				}
+				// Store in keyring for session caching with config salt.
+				if storeErr := sess.SetLUKWithSalt(luk, cfg.GlobalSalt); storeErr != nil {
+					cmdutil.Debug("failed to cache LUK in keyring: %v", storeErr)
+				}
+			} else {
+				return nil, fmt.Errorf("get LUK from session: %w", err)
 			}
-			fmt.Fprint(os.Stderr, "Enter master password: ")
-			password, readErr := readPassword()
-			if readErr != nil {
-				return nil, fmt.Errorf("read password: %w", readErr)
-			}
-			fmt.Fprintln(os.Stderr)
-			luk, err = crypto.DeriveLUK(password, cfg.GlobalSalt)
-			if err != nil {
-				return nil, fmt.Errorf("derive LUK: %w", err)
-			}
-			// Store in keyring for session caching.
-			if storeErr := keyringBackend.StoreLUK(luk); storeErr != nil {
-				cmdutil.Debug("failed to cache LUK in keyring: %v", storeErr)
-			}
-		} else {
-			return nil, fmt.Errorf("get LUK from keyring: %w", err)
+		}
+	} else {
+		// forceReauth is true: always prompt for master password.
+		cfg, cfgErr := store.ReadConfig(s.ConfigPath)
+		if cfgErr != nil {
+			return nil, fmt.Errorf("read config: %w", cfgErr)
+		}
+		fmt.Fprint(os.Stderr, "Enter master password: ")
+		password, readErr := readPassword()
+		if readErr != nil {
+			return nil, fmt.Errorf("read password: %w", readErr)
+		}
+		fmt.Fprintln(os.Stderr)
+		luk, err = crypto.DeriveLUK(password, cfg.GlobalSalt)
+		if err != nil {
+			return nil, fmt.Errorf("derive LUK: %w", err)
+		}
+		// Store in keyring for session caching with config salt.
+		if storeErr := sess.SetLUKWithSalt(luk, cfg.GlobalSalt); storeErr != nil {
+			cmdutil.Debug("failed to cache LUK in keyring: %v", storeErr)
 		}
 	}
 

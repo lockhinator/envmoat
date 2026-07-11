@@ -2,7 +2,9 @@ package store
 
 import (
 	"crypto/rand"
+	"fmt"
 	"os"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -24,8 +26,15 @@ type Config struct {
 	GlobalSalt []byte `yaml:"global_salt"`
 
 	// SessionTTLMinutes is the duration (in minutes) a session stays unlocked.
+	// Deprecated: use SessionTTL instead.
 	SessionTTLMinutes int `yaml:"session_ttl_minutes,omitempty"`
+
+	// SessionTTL is the session TTL as a Go duration string (e.g. "15m", "30m", "1h").
+	SessionTTL string `yaml:"session_ttl,omitempty"`
 }
+
+// defaultSessionTTL is the default session TTL duration.
+const defaultSessionTTL = "15m"
 
 // DefaultConfig returns a Config with default values and a fresh random global salt.
 func DefaultConfig() (*Config, error) {
@@ -37,7 +46,27 @@ func DefaultConfig() (*Config, error) {
 		Version:           1,
 		GlobalSalt:        salt,
 		SessionTTLMinutes: DefaultSessionTTLMinutes,
+		SessionTTL:        defaultSessionTTL,
 	}, nil
+}
+
+// ParseSessionTTL parses the SessionTTL string field into a time.Duration.
+// If SessionTTL is empty, it falls back to SessionTTLMinutes (in minutes).
+// Returns an error if the duration string is invalid.
+func (c *Config) ParseSessionTTL() (time.Duration, error) {
+	if c.SessionTTL != "" {
+		d, err := time.ParseDuration(c.SessionTTL)
+		if err != nil {
+			return 0, fmt.Errorf("parse session_ttl %q: %w", c.SessionTTL, err)
+		}
+		return d, nil
+	}
+	// Fallback to SessionTTLMinutes for backward compatibility.
+	if c.SessionTTLMinutes > 0 {
+		return time.Duration(c.SessionTTLMinutes) * time.Minute, nil
+	}
+	// Default if neither is set.
+	return time.ParseDuration(defaultSessionTTL)
 }
 
 // WriteConfig writes the config to a YAML file with 0600 permissions.
