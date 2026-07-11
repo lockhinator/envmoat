@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"os"
 	"sort"
 	"strings"
@@ -129,5 +130,51 @@ func TestListSetRoundtrip(t *testing.T) {
 	// Verify value is NOT shown.
 	if strings.Contains(stdout, "new-value") {
 		t.Errorf("value should not appear in list output")
+	}
+}
+
+func TestListJSON(t *testing.T) {
+	secrets := map[string]string{"API_KEY": "secret1", "DB_PASS": "secret2", "TOKEN": "secret3"}
+	_, markerDir, cleanup := testEnv(t, secrets)
+	defer cleanup()
+
+	origDir, _ := os.Getwd()
+	os.Chdir(markerDir)
+	defer os.Chdir(origDir)
+
+	stdout, stderr, err := runCmd(t, []string{"list", "--json"})
+	if err != nil {
+		t.Fatalf("list --json failed: %v stderr: %s", err, stderr)
+	}
+
+	// Parse JSON output.
+	var result struct {
+		Keys []string `json:"keys"`
+	}
+	if err := json.Unmarshal([]byte(stdout), &result); err != nil {
+		t.Fatalf("invalid JSON output: %v (got: %q)", err, stdout)
+	}
+
+	// Verify keys match.
+	expectedKeys := []string{"API_KEY", "DB_PASS", "TOKEN"}
+	if len(result.Keys) != len(expectedKeys) {
+		t.Fatalf("expected %d keys, got %d: %v", len(expectedKeys), len(result.Keys), result.Keys)
+	}
+	for _, k := range expectedKeys {
+		found := false
+		for _, key := range result.Keys {
+			if key == k {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("expected key %q in JSON output, got: %v", k, result.Keys)
+		}
+	}
+
+	// Verify keys are sorted.
+	if !sort.StringsAreSorted(result.Keys) {
+		t.Errorf("expected sorted keys, got: %v", result.Keys)
 	}
 }

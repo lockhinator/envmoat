@@ -17,11 +17,15 @@ var listCmd = &cobra.Command{
 Values are not shown.
 
 Example:
-  envmoat list`,
+  envmoat list
+  envmoat list --json`,
 	RunE: runList,
 }
 
+var listJSON bool
+
 func init() {
+	listCmd.Flags().BoolVar(&listJSON, "json", false, "Output as JSON {\"keys\": [\"KEY1\", \"KEY2\"]}")
 	rootCmd.AddCommand(listCmd)
 }
 
@@ -59,8 +63,20 @@ func runList(cmd *cobra.Command, args []string) error {
 	}
 	sort.Strings(keys)
 
-	for _, k := range keys {
-		fmt.Println(k)
+	if listJSON {
+		output := struct {
+			Keys []string `json:"keys"`
+		}{keys}
+		data, err := json.Marshal(output)
+		if err != nil {
+			cmdutil.Errorf("", "marshal JSON: %v", err)
+			return fmt.Errorf("marshal JSON: %w", err)
+		}
+		fmt.Println(string(data))
+	} else {
+		for _, k := range keys {
+			fmt.Println(k)
+		}
 	}
 	return nil
 }
