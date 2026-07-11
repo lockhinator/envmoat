@@ -5,6 +5,7 @@ package session
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/lockinator/envmoat/internal/backend"
@@ -72,6 +73,11 @@ func (s *Session) GetLUK() ([]byte, error) {
 	if time.Now().UnixNano() > sv.Expiry {
 		_ = s.keyring.DeleteLUK()
 		return nil, ErrExpired
+	}
+
+	// Sliding window: reset TTL on each successful access.
+	if err := s.SetLUKWithSalt(sv.LUK, sv.ConfigSalt); err != nil {
+		return nil, fmt.Errorf("reset session TTL: %w", err)
 	}
 
 	return sv.LUK, nil
