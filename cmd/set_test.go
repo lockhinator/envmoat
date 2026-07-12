@@ -115,20 +115,47 @@ func runCmd(t *testing.T, args []string) (string, string, error) {
 	os.Stdout = stdoutW
 	os.Stderr = stderrW
 
+	// Also restore rootCmd's Out/Err writers so SetErr() from previous tests doesn't leak.
+	oldRootOut := rootCmd.OutOrStdout()
+	oldRootErr := rootCmd.ErrOrStderr()
+	rootCmd.SetOut(stdoutW)
+	rootCmd.SetErr(stderrW)
+
+	// Redirect stdin to a pipe so Confirm() sees a non-terminal and returns false.
+	// Tests that need custom stdin (e.g., TestSetStdin) set up their own pipe before calling runCmd,
+	// so we only redirect if stdin is currently a terminal.
+	var oldStdin, stdinR, stdinW *os.File
+	if fi, err := os.Stdin.Stat(); err == nil && fi.Mode()&os.ModeNamedPipe == 0 {
+		oldStdin = os.Stdin
+		stdinR, stdinW, _ = os.Pipe()
+		os.Stdin = stdinR
+	}
+
 	rootCmd.SetArgs(args)
 	_, err := rootCmd.ExecuteC()
 
 	stdoutW.Close()
 	stderrW.Close()
+	if stdinW != nil {
+		stdinW.Close() // close write end so read end returns EOF
+	}
 
 	var stdoutBuf, stderrBuf bytes.Buffer
 	io.Copy(&stdoutBuf, stdoutR) //nolint:errcheck
 	io.Copy(&stderrBuf, stderrR) //nolint:errcheck
 	stdoutR.Close()
 	stderrR.Close()
+	if stdinR != nil {
+		stdinR.Close()
+	}
 
 	os.Stdout = oldStdout
 	os.Stderr = oldStderr
+	rootCmd.SetOut(oldRootOut)
+	rootCmd.SetErr(oldRootErr)
+	if oldStdin != nil {
+		os.Stdin = oldStdin
+	}
 
 	return stdoutBuf.String(), stderrBuf.String(), err
 }
